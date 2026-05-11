@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GiỏiV – Mobile Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    height: 100%; margin: 0; padding: 0; overflow: hidden;
+    background: #6b7280;
+    display: flex; justify-content: center; align-items: flex-end;
+    font-family: 'Be Vietnam Pro', sans-serif;
+  }
+  #phone-wrap {
+    width: min(100%, 480px); height: 100%;
+    display: flex; flex-direction: column;
+    background: #fff;
+    box-shadow: 0 -5px 40px rgba(0,0,0,0.5);
+    overflow: hidden; position: relative;
+  }
+  @media (max-width: 500px) {
+    #phone-wrap { width: 100%; box-shadow: none; }
+    html, body { background: #fff; }
+  }
+
+  /* ── action bar ── */
+  #action-bar {
+    display: flex; gap: 8px; padding: 8px 10px;
+    background: #e5e7eb; border-bottom: 1px solid #ccc;
+    justify-content: flex-end; flex-shrink: 0;
+  }
+  .action-btn {
+    padding: 6px 14px; border-radius: 8px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: 'Be Vietnam Pro', sans-serif;
+  }
+  .action-btn.home  { background: #cc0000; color: #fff; }
+  .action-btn.reset { background: #6b7280; color: #fff; }
+  .action-btn.post  { background: #16a34a; color: #fff; }
+
+  /* ── editor ── */
+  #editor {
+    flex: 1; min-height: 0; width: 100%; background: #fff;
+    padding: 16px 20px; font-size: 30px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    border: none; box-sizing: border-box;
+    white-space: pre-wrap; word-wrap: break-word;
+    overflow-y: auto; outline: none;
+  }
+  #editor::after {
+    content: "|";
+    display: inline-block;
+    margin-left: 1px;
+    animation: blink 1s step-end infinite;
+    font-weight: 100;
+  }
+  @keyframes blink {
+    from, to { color: transparent; }
+    50% { color: black; }
+  }
+
+  /* ── keyboard container ── */
+  .keyboard-container {
+    position: relative; width: 100%; flex-shrink: 0; line-height: 0;
+  }
+  .keyboard-container > img.kbd-bg {
+    width: 100%; display: block; pointer-events: none;
+  }
+  /* transparent overlay covering the image */
+  .keyboard {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  }
+
+  /* ── key buttons ── */
+  .key {
+    position: absolute;
+    background: transparent; border: none; margin: 0; padding: 0;
+    cursor: pointer; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .key:active { background: rgba(0,0,0,0.08); border-radius: 6px; }
+
+  /* ── bottom bar buttons ── */
+  .bottom-bar {
+    position: absolute; display: flex; align-items: center;
+  }
+  .bar-btn {
+    display: flex; justify-content: center; align-items: center;
+    cursor: pointer; background: transparent; border: none;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    font-size: clamp(13px, 3.5vw, 18px); font-weight: 700;
+    font-family: 'Be Vietnam Pro', sans-serif; color: #111;
+  }
+  .bar-btn:active { background: rgba(0,0,0,0.08); border-radius: 4px; }
+
+  /* shift active indicator */
+  .shift-active { color: #cc0000 !important; }
+</style>
+</head>
+<body>
+<div id="phone-wrap">
+
+<div id="action-bar">
+  <button class="action-btn home"  onclick="location.href='index.html'">Home</button>
+  <button class="action-btn reset" onclick="resetEditor()">↺ Xóa hết</button>
+  <button class="action-btn post"  onclick="goToBoard()">💬 Gửi đánh giá</button>
+</div>
+
+<div id="editor"></div>
+
+<div class="keyboard-container">
+  <img class="kbd-bg" src="images/mobile.png" alt="Bàn phím GiỏiV">
+  <div class="keyboard" id="kbd"></div>
+</div>
+
+</div><!-- /phone-wrap -->
+
+<script>
+// ── GVN Mobile keyboard layout ────────────────────────────────────────
+// Row 1 (8 keys): d m t c x w(ư) h u
+// Row 2 (8 keys): g v n r q o a i
+// Row 3 (7 keys + BS): s b k l p e y BS
+// Bottom bar: SHIFT | SPACE | ENTER
+
+const LAYOUT = [
+  ['d','m','t','c','x','w','h','u'],
+  ['g','v','n','r','q','o','a','i'],
+  ['s','b','k','l','p','e','y','BS'],
+];
+
+// ── GVN Vietnamese IME ────────────────────────────────────────────────
+const VOWEL_TABLE = {
+  'a': ['a','á','à','ả','ã','ạ'],
+  'ă': ['ă','ắ','ằ','ẳ','ẵ','ặ'],
+  'â': ['â','ấ','ầ','ẩ','ẫ','ậ'],
+  'e': ['e','é','è','ẻ','ẽ','ẹ'],
+  'ê': ['ê','ế','ề','ể','ễ','ệ'],
+  'i': ['i','í','ì','ỉ','ĩ','ị'],
+  'o': ['o','ó','ò','ỏ','õ','ọ'],
+  'ô': ['ô','ố','ồ','ổ','ỗ','ộ'],
+  'ơ': ['ơ','ớ','ờ','ở','ỡ','ợ'],
+  'u': ['u','ú','ù','ủ','ũ','ụ'],
+  'ư': ['ư','ứ','ừ','ử','ữ','ự'],
+  'y': ['y','ý','ỳ','ỷ','ỹ','ỵ'],
+};
+const TONE_KEYS       = { 'r':1, 'l':2, 'k':3, 'b':4, 'v':5 };
+const TONE_RESET_KEYS = new Set(['s','d','x']);
+const BASE_VOWELS     = new Set(Object.keys(VOWEL_TABLE));
+
+function applyTone(base, t) { return (VOWEL_TABLE[base] || [base])[t] || base; }
+
+// Vietnamese tone placement:
+//   closing glide i/u/o after another vowel → tone on penultimate vowel
+//   y after u ("uy") → tone on y (nucleus); elsewhere (ay/ây) → penultimate
+//   otherwise → tone on last vowel
+function findToneTarget(segs) {
+  const vIdx = [];
+  for (let j = 0; j < segs.length; j++) { if (segs[j].type === 'vowel') vIdx.push(j); }
+  if (vIdx.length === 0) return -1;
+  if (vIdx.length === 1) return vIdx[0];
+  const last = segs[vIdx[vIdx.length - 1]].base;
+  const prev = segs[vIdx[vIdx.length - 2]].base;
+  if (last === 'i' || last === 'u' || last === 'o') return vIdx[vIdx.length - 2];
+  if (last === 'y') return prev === 'u' ? vIdx[vIdx.length - 1] : vIdx[vIdx.length - 2];
+  return vIdx[vIdx.length - 1];
+}
+
+function processRaw(keys) {
+  if (!keys.length) return '';
+  const segs = [];
+  let tone = 0, lastToneKey = null, hasVowel = false;
+  let i = 0;
+  while (i < keys.length) {
+    const k = keys[i], nx = keys[i+1] || '';
+    if (k==='d'&&nx==='d') { segs.push({type:'char',  char:'đ'          }); i+=2; continue; }
+    if (k==='a'&&nx==='a') { segs.push({type:'vowel', char:'â', base:'â'}); hasVowel=true; i+=2; continue; }
+    if (k==='a'&&nx==='w') { segs.push({type:'vowel', char:'ă', base:'ă'}); hasVowel=true; i+=2; continue; }
+    if (k==='e'&&nx==='e') { segs.push({type:'vowel', char:'ê', base:'ê'}); hasVowel=true; i+=2; continue; }
+    if (k==='o'&&nx==='o') { segs.push({type:'vowel', char:'ô', base:'ô'}); hasVowel=true; i+=2; continue; }
+    if (k==='o'&&nx==='w') { segs.push({type:'vowel', char:'ơ', base:'ơ'}); hasVowel=true; i+=2; continue; }
+    if (k==='u'&&nx==='w') { segs.push({type:'vowel', char:'ư', base:'ư'}); hasVowel=true; i+=2; continue; }
+    if (k==='w')           { segs.push({type:'vowel', char:'ư', base:'ư'}); hasVowel=true; i++;  continue; }
+    if (hasVowel && TONE_KEYS[k] !== undefined) {
+      if (k === lastToneKey) { tone=0; lastToneKey=null; }
+      else { tone=TONE_KEYS[k]; lastToneKey=k; }
+      i++; continue;
+    }
+    if (hasVowel && tone!==0 && TONE_RESET_KEYS.has(k)) { tone=0; lastToneKey=null; i++; continue; }
+    if (BASE_VOWELS.has(k)) {
+      // "gi" = single consonant: treat 'i' as char when it follows 'g' (no vowel yet)
+      // and the next key is a vowel/modifier, e.g. giúp → g+i(char)+u
+      if (k==='i' && !hasVowel && segs.length>0
+          && segs[segs.length-1].type==='char' && segs[segs.length-1].char==='g'
+          && (BASE_VOWELS.has(nx) || nx==='w')) {
+        segs.push({type:'char', char:'i'}); i++; continue;
+      }
+      segs.push({type:'vowel', char:k, base:k}); hasVowel=true; i++; continue;
+    }
+    segs.push({type:'char', char:k}); i++;
+  }
+  if (tone !== 0) {
+    const idx = findToneTarget(segs);
+    if (idx >= 0) segs[idx].char = applyTone(segs[idx].base, tone);
+  }
+  return segs.map(s => s.char).join('');
+}
+
+// ── Editor state ──────────────────────────────────────────────────────
+let committed = '', rawKeys = [], shiftMode = false;
+const editor = document.getElementById('editor');
+
+function render() {
+  editor.innerText = committed + processRaw(rawKeys);
+  editor.scrollTop = editor.scrollHeight;
+  // update shift button color
+  const sb = document.getElementById('shift-btn');
+  if (sb) sb.classList.toggle('shift-active', shiftMode);
+}
+
+function flushWord(extra) {
+  committed += processRaw(rawKeys) + (extra || '');
+  rawKeys = [];
+}
+
+// ── Key handler ───────────────────────────────────────────────────────
+function onKey(vk) {
+  if (vk === 'BS') {
+    if (rawKeys.length > 0) rawKeys.pop();
+    else { const c = [...committed]; c.pop(); committed = c.join(''); }
+    render(); return;
+  }
+  if (shiftMode) {
+    flushWord(vk.toUpperCase());
+    shiftMode = false;
+    render(); return;
+  }
+  rawKeys.push(vk);
+  render();
+}
+
+function onShift() { shiftMode = !shiftMode; render(); }
+function onSpace() { flushWord(' '); render(); }
+function onEnter() { flushWord('\n'); render(); }
+
+// ── Build keyboard overlay ────────────────────────────────────────────
+function buildKbd() {
+  const kbd = document.getElementById('kbd');
+  kbd.innerHTML = '';
+
+  // Row positions (% of image height)
+  const ROW_TOP = [3.5, 27.5, 51.5];
+  const ROW_H   = 22;          // % height per row
+  const COL_W   = 99 / 8;      // 8 columns
+  const COL_START = (i) => 0.5 + i * COL_W;
+
+  LAYOUT.forEach((row, rIdx) => {
+    row.forEach((vk, cIdx) => {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      btn.style.left   = COL_START(cIdx) + '%';
+      btn.style.top    = ROW_TOP[rIdx] + '%';
+      btn.style.width  = COL_W + '%';
+      btn.style.height = ROW_H + '%';
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); onKey(vk); }, {passive:false});
+      btn.addEventListener('mousedown',  (e) => { e.preventDefault(); onKey(vk); });
+      kbd.appendChild(btn);
+    });
+  });
+
+  // ── Bottom bar ──────────────────────────────────────────────────────
+  const bar = document.createElement('div');
+  bar.className = 'bottom-bar';
+  bar.style.cssText = 'left:0; top:76%; width:100%; height:24%;';
+
+  // Shift (1.2칸 = 15%)
+  const shiftBtn = document.createElement('button');
+  shiftBtn.id = 'shift-btn';
+  shiftBtn.className = 'bar-btn';
+  shiftBtn.style.cssText = 'width:15%; height:100%;';
+  shiftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); onShift(); }, {passive:false});
+  shiftBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); onShift(); });
+
+  // Multilingual (no-op, 1.3칸 = 16.25%)
+  const multiBtn = document.createElement('button');
+  multiBtn.className = 'bar-btn';
+  multiBtn.style.cssText = 'width:16.25%; height:100%;';
+
+  // Space (3.5칸 = 43.75%)
+  const spaceBtn = document.createElement('button');
+  spaceBtn.className = 'bar-btn';
+  spaceBtn.style.cssText = 'width:43.75%; height:100%;';
+  spaceBtn.addEventListener('touchstart', (e) => { e.preventDefault(); onSpace(); }, {passive:false});
+  spaceBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); onSpace(); });
+
+  // Enter (2칸 = 25%)
+  const enterBtn = document.createElement('button');
+  enterBtn.className = 'bar-btn';
+  enterBtn.style.cssText = 'width:25%; height:100%;';
+  enterBtn.addEventListener('touchstart', (e) => { e.preventDefault(); onEnter(); }, {passive:false});
+  enterBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); onEnter(); });
+
+  bar.appendChild(shiftBtn);
+  bar.appendChild(multiBtn);
+  bar.appendChild(spaceBtn);
+  bar.appendChild(enterBtn);
+  kbd.appendChild(bar);
+}
+
+function resetEditor() { committed = ''; rawKeys = []; shiftMode = false; render(); }
+
+function goToBoard() {
+  const text = (committed + processRaw(rawKeys)).trim();
+  if (!text) {
+    alert('Bạn chưa gõ gì cả.\nHãy thử gõ bằng GiỏiV trước!');
+    return;
+  }
+  location.href = 'board.html?from=mobile&content=' + encodeURIComponent(text);
+}
+
+buildKbd();
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GiỏiV – PC Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    background: url('images/windows.png') no-repeat center center fixed;
+    background-size: cover;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  #notepad-container {
+    width: 85%;
+    max-width: 950px;
+    margin-top: 60px;
+    background: #fff;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .title-bar {
+    background: #cc0000;
+    color: white;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  #editor {
+    height: 360px;
+    padding: 25px;
+    font-size: 38px;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    border: none;
+    outline: none;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    box-sizing: border-box;
+    line-height: 1.4;
+  }
+
+  #editor::after {
+    content: "|";
+    display: inline-block;
+    animation: blink 1s step-end infinite;
+    font-weight: 100;
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    from, to { color: black; }
+    50% { color: transparent; }
+  }
+
+  .hint-bar {
+    width: 85%;
+    max-width: 950px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+	margin-right: 165px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .hint-chip {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.85);
+    color: #444;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    letter-spacing: 0.02em;
+  }
+
+  /* keyboard image + challenge button row */
+  .kbd-area {
+    margin-top: 4px;
+    width: 85%;
+    max-width: 950px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+
+  .kbd-area img {
+    flex: 0 0 auto;
+    width: 75%;
+    max-width: 660px;
+    opacity: 0.9;
+    border-radius: 8px;
+    object-fit: contain;
+  }
+
+  .challenge-btn {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    background: #f59e0b;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-size: 0.9em;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    white-space: nowrap;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .challenge-btn:hover { background: #d97706; }
+
+  .top-btn {
+    position: fixed;
+    top: 20px;
+    padding: 10px 18px;
+    font-size: 1.05em;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 600;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+
+<button class="top-btn" style="right:78px; background:#cc0000;"
+  onclick="location.href='index.html'">Home</button>
+
+<button class="top-btn" style="right:255px; background:#6b7280;"
+  onclick="resetEditor()">↺ Xóa hết</button>
+
+<button class="top-btn" style="right:415px; background:#16a34a;"
+  onclick="goToBoard()">💬 Gửi đánh giá</button>
+
+<div id="notepad-container">
+  <div class="title-bar">
+    <span>Ghi chú – GiỏiV</span>
+    <span>✕</span>
+  </div>
+  <div id="editor" contenteditable="false"></div>
+</div>
+
+<div class="hint-bar">
+  <div class="hint-chip">Hãy đặt tay lên G-V-N-R và O-A-I-; rồi bắt đầu.</div>
+</div>
+
+<div class="kbd-area">
+  <img src="images/hint.png" alt="Bàn phím GiỏiV">
+  <button class="challenge-btn" onclick="location.href='challenge.html'">
+    🏆 Thử không<br>nhìn bàn phím!
+  </button>
+</div>
+
+<script>
+// ── GVN Keyboard layout: physical QWERTY → GVN virtual key ────────────
+const KEY_MAP = {
+  'q':'d',  'w':'m',  'e':'t',  'r':'c',  't':'j',
+  'y':'x',  'u':'w',  'i':'h',  'o':'u',  'p':'y',
+  'a':'g',  's':'v',  'd':'n',  'f':'r',  'g':'f',
+  'h':'q',  'j':'o',  'k':'a',  'l':'i',
+  'z':'s',  'x':'b',  'c':'k',  'v':'l',  'b':'z',
+  'n':'p',  'm':'e',
+};
+
+// ── GVN Vietnamese IME ────────────────────────────────────────────────
+const VOWEL_TABLE = {
+  'a': ['a','á','à','ả','ã','ạ'],
+  'ă': ['ă','ắ','ằ','ẳ','ẵ','ặ'],
+  'â': ['â','ấ','ầ','ẩ','ẫ','ậ'],
+  'e': ['e','é','è','ẻ','ẽ','ẹ'],
+  'ê': ['ê','ế','ề','ể','ễ','ệ'],
+  'i': ['i','í','ì','ỉ','ĩ','ị'],
+  'o': ['o','ó','ò','ỏ','õ','ọ'],
+  'ô': ['ô','ố','ồ','ổ','ỗ','ộ'],
+  'ơ': ['ơ','ớ','ờ','ở','ỡ','ợ'],
+  'u': ['u','ú','ù','ủ','ũ','ụ'],
+  'ư': ['ư','ứ','ừ','ử','ữ','ự'],
+  'y': ['y','ý','ỳ','ỷ','ỹ','ỵ'],
+};
+const TONE_KEYS       = { 'r':1, 'l':2, 'k':3, 'b':4, 'v':5 };
+const TONE_RESET_KEYS = new Set(['s','d','x']);
+const BASE_VOWELS     = new Set(Object.keys(VOWEL_TABLE));
+
+function applyTone(base, t) { return (VOWEL_TABLE[base] || [base])[t] || base; }
+
+// Vietnamese tone placement:
+//   closing glide i/u/o after another vowel → tone on penultimate vowel
+//   y after u ("uy") → tone on y (nucleus); elsewhere (ay/ây) → penultimate
+//   otherwise → tone on last vowel
+function findToneTarget(segs) {
+  const vIdx = [];
+  for (let j = 0; j < segs.length; j++) { if (segs[j].type === 'vowel') vIdx.push(j); }
+  if (vIdx.length === 0) return -1;
+  if (vIdx.length === 1) return vIdx[0];
+  const last = segs[vIdx[vIdx.length - 1]].base;
+  const prev = segs[vIdx[vIdx.length - 2]].base;
+  if (last === 'i' || last === 'u' || last === 'o') return vIdx[vIdx.length - 2];
+  if (last === 'y') return prev === 'u' ? vIdx[vIdx.length - 1] : vIdx[vIdx.length - 2];
+  return vIdx[vIdx.length - 1];
+}
+
+function processRaw(keys) {
+  if (!keys.length) return '';
+  const segs = [];
+  let tone = 0, lastToneKey = null, hasVowel = false;
+  let i = 0;
+  while (i < keys.length) {
+    const k = keys[i], nx = keys[i+1] || '';
+    if (k==='d'&&nx==='d') { segs.push({type:'char',  char:'đ'          }); i+=2; continue; }
+    if (k==='a'&&nx==='a') { segs.push({type:'vowel', char:'â', base:'â'}); hasVowel=true; i+=2; continue; }
+    if (k==='a'&&nx==='w') { segs.push({type:'vowel', char:'ă', base:'ă'}); hasVowel=true; i+=2; continue; }
+    if (k==='e'&&nx==='e') { segs.push({type:'vowel', char:'ê', base:'ê'}); hasVowel=true; i+=2; continue; }
+    if (k==='o'&&nx==='o') { segs.push({type:'vowel', char:'ô', base:'ô'}); hasVowel=true; i+=2; continue; }
+    if (k==='o'&&nx==='w') { segs.push({type:'vowel', char:'ơ', base:'ơ'}); hasVowel=true; i+=2; continue; }
+    if (k==='u'&&nx==='w') { segs.push({type:'vowel', char:'ư', base:'ư'}); hasVowel=true; i+=2; continue; }
+    if (k==='w')           { segs.push({type:'vowel', char:'ư', base:'ư'}); hasVowel=true; i++;  continue; }
+    if (hasVowel && TONE_KEYS[k] !== undefined) {
+      if (k === lastToneKey) { tone=0; lastToneKey=null; }
+      else { tone=TONE_KEYS[k]; lastToneKey=k; }
+      i++; continue;
+    }
+    if (hasVowel && tone!==0 && TONE_RESET_KEYS.has(k)) { tone=0; lastToneKey=null; i++; continue; }
+    if (BASE_VOWELS.has(k)) {
+      // "gi" = single consonant: treat 'i' as char when it follows 'g' (no vowel yet)
+      // and the next key is a vowel/modifier, e.g. giúp → g+i(char)+u
+      if (k==='i' && !hasVowel && segs.length>0
+          && segs[segs.length-1].type==='char' && segs[segs.length-1].char==='g'
+          && (BASE_VOWELS.has(nx) || nx==='w')) {
+        segs.push({type:'char', char:'i'}); i++; continue;
+      }
+      segs.push({type:'vowel', char:k, base:k}); hasVowel=true; i++; continue;
+    }
+    segs.push({type:'char', char:k}); i++;
+  }
+  if (tone !== 0) {
+    const idx = findToneTarget(segs);
+    if (idx >= 0) segs[idx].char = applyTone(segs[idx].base, tone);
+  }
+  return segs.map(s => s.char).join('');
+}
+
+// ── Editor state ──────────────────────────────────────────────────────
+let committed = '', rawKeys = [];
+const editor = document.getElementById('editor');
+
+function render() {
+  editor.innerText = committed + processRaw(rawKeys);
+  editor.scrollTop = editor.scrollHeight;
+}
+function flushWord(extra) { committed += processRaw(rawKeys) + (extra||''); rawKeys = []; }
+
+const IGNORED = new Set([
+  'shift','control','alt','meta','capslock','tab','escape',
+  'arrowleft','arrowright','arrowup','arrowdown',
+  'pageup','pagedown','home','end','insert',
+  'f1','f2','f3','f4','f6','f7','f8','f9','f10','f11',
+]);
+
+window.addEventListener('keydown', e => {
+  if (e.isComposing || e.key === 'Process') return;  // ignore IME composition events
+  const key = e.key, kl = key.toLowerCase();
+  if (kl==='f5'||kl==='f12') return;
+  if (IGNORED.has(kl)) return;
+  e.preventDefault();
+
+  if (kl==='backspace') {
+    if (rawKeys.length>0) rawKeys.pop();
+    else { const c=[...committed]; c.pop(); committed=c.join(''); }
+    render(); return;
+  }
+  if (kl==='enter') { flushWord('\n'); render(); return; }
+  if (/^[ .,!?;:()\[\]{}"'<>\/\\~`@#$%^&*\-_+=|]$/.test(key)) { flushWord(key); render(); return; }
+
+  if (Object.prototype.hasOwnProperty.call(KEY_MAP, kl)) {
+    const vk = KEY_MAP[kl];
+    if (e.shiftKey) { flushWord(vk.toUpperCase()); render(); return; }
+    rawKeys.push(vk); render(); return;
+  }
+  flushWord(key); render();
+});
+
+function resetEditor() { committed=''; rawKeys=[]; render(); }
+
+function goToBoard() {
+  const text = (committed + processRaw(rawKeys)).trim();
+  if (!text) { alert('Bạn chưa gõ gì cả.\nHãy thử gõ một đoạn bằng GiỏiV trước!'); return; }
+  location.href = 'board.html?from=pc&content=' + encodeURIComponent(text);
+}
+
+render();
+</script>
+</body>
+</html>
