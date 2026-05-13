@@ -100,14 +100,39 @@
     gap: 18px;
   }
 
-  .kbd-area img {
+  /* keyboard image wrapper (for hand overlay) */
+  .kbd-img-wrap {
+    position: relative;
     flex: 0 0 auto;
     width: 75%;
     max-width: 660px;
-    opacity: 0.9;
     border-radius: 8px;
+    overflow: hidden;
+  }
+  .kbd-img-wrap > img:not(.hand-overlay) {
+    width: 100%;
+    display: block;
+    opacity: 0.9;
     object-fit: contain;
   }
+
+  /* hand overlay animation */
+  @keyframes handFade {
+    0%   { opacity: 0; }
+    15%  { opacity: 0.72; }
+    75%  { opacity: 0.72; }
+    100% { opacity: 0; }
+  }
+  .hand-overlay {
+    position: absolute;
+    width: 52%;
+    top: 38%;
+    pointer-events: none;
+    opacity: 0;
+    animation: handFade 3.5s ease-in-out forwards;
+  }
+  .hand-left  { left:-2%; }
+  .hand-right { left: 53%; }
 
   .challenge-btn {
     flex-shrink: 0;
@@ -166,7 +191,11 @@
 </div>
 
 <div class="kbd-area">
-  <img src="images/hint.png" alt="Bàn phím GiỏiV">
+  <div class="kbd-img-wrap">
+    <img src="images/hint.png" alt="Bàn phím GiỏiV">
+    <img class="hand-overlay hand-left"  src="images/left.png"  alt="">
+    <img class="hand-overlay hand-right" src="images/right.png" alt="">
+  </div>
   <button class="challenge-btn" onclick="location.href='challenge.html'">
     🏆 Thử không<br>nhìn bàn phím!
   </button>
